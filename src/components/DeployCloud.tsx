@@ -1,8 +1,10 @@
 import { useState, useEffect, type FormEvent } from 'react';
-import { Globe, Trash2, Plus, Loader2 } from 'lucide-react';
+import { Plus, Loader2, Search, Sparkles } from 'lucide-react';
 import { supabase, type TopalSite } from '../lib/supabase';
 import { getOwnerId } from '../lib/ownerId';
 import { VALID_TLDS, validateDomain } from '../lib/tlds';
+import { Modal } from './Modal';
+import { SiteCard } from './SiteCard';
 
 interface DeployCloudProps {
   onNavigate: (url: string) => void;
@@ -12,6 +14,8 @@ export function DeployCloud({ onNavigate }: DeployCloudProps) {
   const [sites, setSites] = useState<TopalSite[]>([]);
   const [loading, setLoading] = useState(true);
   const [deploying, setDeploying] = useState(false);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
   const [domain, setDomain] = useState('');
   const [selectedTLD, setSelectedTLD] = useState('.topal');
   const [title, setTitle] = useState('');
@@ -80,6 +84,7 @@ export function DeployCloud({ onNavigate }: DeployCloudProps) {
       setDomain('');
       setTitle('');
       setHtmlContent('');
+      setIsModalOpen(false);
       await loadMySites();
     } catch (err) {
       setError('Failed to deploy site');
@@ -106,155 +111,166 @@ export function DeployCloud({ onNavigate }: DeployCloudProps) {
     }
   };
 
+  const filteredSites = sites.filter(site =>
+    site.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    site.full_domain.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
   return (
-    <div className="w-full bg-gray-950 p-4 sm:p-6 md:p-8">
-      <div className="max-w-6xl mx-auto">
-        <div className="text-center mb-8 sm:mb-12">
-          <div className="flex items-center justify-center gap-3 mb-3">
-            <Globe className="w-10 h-10 sm:w-12 sm:h-12 text-blue-500" />
-            <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold text-white">
-              Deploy Cloud
-            </h1>
+    <div className="min-h-screen bg-gray-950 flex flex-col">
+      <div className="flex-1 w-full px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
+        <div className="max-w-7xl mx-auto">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
+            <div className="relative flex-1 max-w-md">
+              <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-500" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search deploys..."
+                className="w-full pl-12 pr-4 py-3 bg-gray-900 border border-gray-700 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all"
+              />
+            </div>
+
+            <button
+              onClick={() => setIsModalOpen(true)}
+              className="flex items-center justify-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-xl font-semibold hover:bg-blue-700 transition-colors shadow-lg shadow-blue-500/20"
+            >
+              <Plus className="w-5 h-5" />
+              Add New Deploy
+            </button>
           </div>
-          <p className="text-base sm:text-lg text-gray-400">
-            Deploy your sites to the Topal web
-          </p>
-        </div>
 
-        <div className="grid lg:grid-cols-2 gap-6 lg:gap-8 pb-8">
-          <div className="bg-gray-900 rounded-2xl shadow-lg p-4 sm:p-6 md:p-8">
-            <h2 className="text-xl sm:text-2xl font-bold text-white mb-4 sm:mb-6 flex items-center gap-2">
-              <Plus className="w-5 h-5 sm:w-6 sm:h-6" />
-              Deploy New Site
-            </h2>
-
-            <form onSubmit={handleDeploy} className="space-y-4 sm:space-y-5">
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1.5">
-                  Domain Name
-                </label>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="text"
-                    value={domain}
-                    onChange={(e) => setDomain(e.target.value.toLowerCase().replace(/[^a-z]/g, ''))}
-                    placeholder="mysite"
-                    className="flex-1 px-3 py-2 border border-gray-700 rounded-lg bg-gray-800 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm sm:text-base placeholder-gray-500"
-                  />
-                  <select
-                    value={selectedTLD}
-                    onChange={(e) => setSelectedTLD(e.target.value)}
-                    className="px-3 py-2 border border-gray-700 rounded-lg bg-gray-800 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm sm:text-base"
-                  >
-                    {VALID_TLDS.map(tld => (
-                      <option key={tld} value={tld}>{tld}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1.5">
-                  Site Title
-                </label>
-                <input
-                  type="text"
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  placeholder="My Awesome Site"
-                  className="w-full px-3 py-2 border border-gray-700 rounded-lg bg-gray-800 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm sm:text-base placeholder-gray-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1.5">
-                  HTML Content
-                </label>
-                <textarea
-                  value={htmlContent}
-                  onChange={(e) => setHtmlContent(e.target.value)}
-                  placeholder="<!DOCTYPE html>&#10;<html>&#10;<head>&#10;  <title>My Site</title>&#10;</head>&#10;<body>&#10;  <h1>Hello World!</h1>&#10;</body>&#10;</html>"
-                  className="w-full px-3 py-2 border border-gray-700 rounded-lg bg-gray-800 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-xs sm:text-sm h-48 sm:h-64 placeholder-gray-500"
-                />
-              </div>
-
-              {error && (
-                <div className="bg-red-950 border border-red-800 text-red-300 px-4 py-3 rounded-lg text-sm">
-                  {error}
-                </div>
+          {loading ? (
+            <div className="flex justify-center items-center py-24">
+              <Loader2 className="w-12 h-12 animate-spin text-blue-500" />
+            </div>
+          ) : filteredSites.length === 0 ? (
+            <div className="text-center py-24">
+              <Sparkles className="w-20 h-20 mx-auto mb-6 text-gray-700" />
+              <h2 className="text-3xl font-bold text-white mb-3">
+                {searchQuery ? 'No sites found' : 'Deploy your first TopalSite today!'}
+              </h2>
+              <p className="text-gray-400 text-lg mb-8">
+                {searchQuery
+                  ? 'Try a different search term'
+                  : 'Create and share your web presence on the Topal network'}
+              </p>
+              {!searchQuery && (
+                <button
+                  onClick={() => setIsModalOpen(true)}
+                  className="inline-flex items-center gap-2 px-8 py-4 bg-blue-600 text-white rounded-xl font-semibold hover:bg-blue-700 transition-colors shadow-lg shadow-blue-500/20"
+                >
+                  <Plus className="w-6 h-6" />
+                  Deploy Your First Site
+                </button>
               )}
-
-              <button
-                type="submit"
-                disabled={deploying}
-                className="w-full bg-blue-600 text-white py-2.5 sm:py-3 rounded-lg font-semibold hover:bg-blue-700 disabled:bg-blue-900 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2 text-sm sm:text-base"
-              >
-                {deploying ? (
-                  <>
-                    <Loader2 className="w-5 h-5 animate-spin" />
-                    Deploying...
-                  </>
-                ) : (
-                  <>
-                    <Plus className="w-5 h-5" />
-                    Deploy Site
-                  </>
-                )}
-              </button>
-            </form>
-          </div>
-
-          <div className="bg-gray-900 rounded-2xl shadow-lg p-4 sm:p-6 md:p-8">
-            <h2 className="text-xl sm:text-2xl font-bold text-white mb-4 sm:mb-6">
-              My Sites
-            </h2>
-
-            {loading ? (
-              <div className="flex justify-center py-12">
-                <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
-              </div>
-            ) : sites.length === 0 ? (
-              <div className="text-center py-12 text-gray-500">
-                <Globe className="w-12 h-12 sm:w-16 sm:h-16 mx-auto mb-4 opacity-30" />
-                <p className="text-sm sm:text-base">No sites deployed yet</p>
-              </div>
-            ) : (
-              <div className="space-y-3 sm:space-y-4">
-                {sites.map((site) => (
-                  <div
-                    key={site.id}
-                    className="border border-gray-700 rounded-lg p-3 sm:p-4 hover:border-blue-500 transition-colors bg-gray-800"
-                  >
-                    <div className="flex items-start justify-between gap-2 sm:gap-3">
-                      <div className="flex-1 min-w-0">
-                        <h3 className="font-semibold text-white mb-1 text-sm sm:text-base truncate">
-                          {site.title}
-                        </h3>
-                        <button
-                          onClick={() => onNavigate(site.full_domain)}
-                          className="text-blue-400 hover:text-blue-300 text-xs sm:text-sm break-all text-left"
-                        >
-                          {site.full_domain}
-                        </button>
-                      </div>
-                      <button
-                        onClick={() => handleDelete(site.id)}
-                        className="text-red-400 hover:text-red-300 p-1.5 sm:p-2 hover:bg-red-950 rounded transition-colors flex-shrink-0"
-                        title="Delete site"
-                      >
-                        <Trash2 className="w-4 h-4 sm:w-5 sm:h-5" />
-                      </button>
-                    </div>
-                    <p className="text-xs text-gray-500 mt-2">
-                      Deployed {new Date(site.created_at).toLocaleDateString()}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {filteredSites.map((site) => (
+                <SiteCard
+                  key={site.id}
+                  title={site.title}
+                  domain={site.full_domain}
+                  htmlContent={site.html_content}
+                  createdAt={site.created_at}
+                  onNavigate={() => onNavigate(site.full_domain)}
+                  onDelete={() => handleDelete(site.id)}
+                />
+              ))}
+            </div>
+          )}
         </div>
       </div>
+
+      <footer className="w-full py-6 text-center border-t border-gray-800">
+        <p className="text-gray-500 font-medium">Topal.</p>
+      </footer>
+
+      <Modal
+        isOpen={isModalOpen}
+        onClose={() => {
+          setIsModalOpen(false);
+          setError('');
+        }}
+        title="Deploy New Site"
+      >
+        <form onSubmit={handleDeploy} className="space-y-5">
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-2">
+              Domain Name
+            </label>
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                value={domain}
+                onChange={(e) => setDomain(e.target.value.toLowerCase().replace(/[^a-z]/g, ''))}
+                placeholder="mysite"
+                className="flex-1 px-4 py-3 border border-gray-700 rounded-lg bg-gray-800 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder-gray-500"
+              />
+              <select
+                value={selectedTLD}
+                onChange={(e) => setSelectedTLD(e.target.value)}
+                className="px-4 py-3 border border-gray-700 rounded-lg bg-gray-800 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                {VALID_TLDS.map(tld => (
+                  <option key={tld} value={tld}>{tld}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-2">
+              Site Title
+            </label>
+            <input
+              type="text"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="My Awesome Site"
+              className="w-full px-4 py-3 border border-gray-700 rounded-lg bg-gray-800 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder-gray-500"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-2">
+              HTML Content
+            </label>
+            <textarea
+              value={htmlContent}
+              onChange={(e) => setHtmlContent(e.target.value)}
+              placeholder="<!DOCTYPE html>&#10;<html>&#10;<head>&#10;  <title>My Site</title>&#10;</head>&#10;<body>&#10;  <h1>Hello World!</h1>&#10;</body>&#10;</html>"
+              className="w-full px-4 py-3 border border-gray-700 rounded-lg bg-gray-800 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm h-80 placeholder-gray-500 resize-none"
+            />
+          </div>
+
+          {error && (
+            <div className="bg-red-950 border border-red-800 text-red-300 px-4 py-3 rounded-lg text-sm">
+              {error}
+            </div>
+          )}
+
+          <button
+            type="submit"
+            disabled={deploying}
+            className="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 disabled:bg-blue-900 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
+          >
+            {deploying ? (
+              <>
+                <Loader2 className="w-5 h-5 animate-spin" />
+                Deploying...
+              </>
+            ) : (
+              <>
+                <Plus className="w-5 h-5" />
+                Deploy Site
+              </>
+            )}
+          </button>
+        </form>
+      </Modal>
     </div>
   );
 }
